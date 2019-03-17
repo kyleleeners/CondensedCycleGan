@@ -2,17 +2,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import itertools
-
 import models
 import torch
 from torch import nn
-from torch.autograd import Variable
 from torch.utils import data
 import torchvision
-import torchvision.datasets as dsets
-import torchvision.transforms as transforms
+import torchaudio.transforms as transforms
 import utils
+from dataloader import AudioFolder
 
 
 """ gpu """
@@ -31,18 +28,24 @@ dataset_dir = 'datasets/music2music'
 load_size = 286
 crop_size = 256
 
-transform = transforms.Compose(
-    [transforms.RandomHorizontalFlip(),
-     transforms.Resize(load_size),
-     transforms.RandomCrop(crop_size),
-     transforms.ToTensor(),
-     transforms.Normalize(mean=[0.5] * 3, std=[0.5] * 3)])
+# transform = transforms.Compose(
+#     [transforms.RandomHorizontalFlip(),
+#      transforms.Resize(load_size),
+#      transforms.RandomCrop(crop_size),
+#      transforms.ToTensor(),
+#      transforms.Normalize(mean=[0.5] * 3, std=[0.5] * 3)])
+
+transform=transforms.Compose([
+    transforms.PadTrim(133623,0),
+    transforms.LC2CL(),
+    transforms.DownmixMono()
+])
 
 dataset_dirs = utils.reorganize(dataset_dir)
-a_data = dsets.ImageFolder(dataset_dirs['trainA'], transform=transform)
-b_data = dsets.ImageFolder(dataset_dirs['trainB'], transform=transform)
-a_test_data = dsets.ImageFolder(dataset_dirs['testA'], transform=transform)
-b_test_data = dsets.ImageFolder(dataset_dirs['testB'], transform=transform)
+a_data = AudioFolder(dataset_dirs['trainA'], transform=transform)
+b_data = AudioFolder(dataset_dirs['trainB'], transform=transform)
+a_test_data = AudioFolder(dataset_dirs['testA'], transform=transform)
+b_test_data = AudioFolder(dataset_dirs['testB'], transform=transform)
 a_loader = torch.utils.data.DataLoader(a_data, batch_size=batch_size, shuffle=True)
 b_loader = data.DataLoader(b_data, batch_size=batch_size, shuffle=True)
 a_test_loader = data.DataLoader(a_test_data, batch_size=3, shuffle=True)
@@ -68,7 +71,7 @@ gb_optimizer = torch.optim.Adam(Gb.parameters(), lr=lr, betas=(0.5, 0.999))
 
 
 """ load checkpoint """
-ckpt_dir = './checkpoints/horse2zebra'
+ckpt_dir = './checkpoints/music2music'
 utils.mkdir(ckpt_dir)
 try:
     ckpt = utils.load_checkpoint(ckpt_dir)
@@ -85,11 +88,10 @@ except:
     print(' [*] No checkpoint!')
     start_epoch = 0
 
-
 """ run """
-a_real_test = Variable(next(iter(a_test_loader))[0], volatile=True)
-b_real_test = Variable(iter(b_test_loader).next()[0], volatile=True)
-a_real_test, b_real_test = utils.cuda([a_real_test, b_real_test])
+a_real_test = iter(a_test_loader).next()[0]
+b_real_test = iter(b_test_loader).next()[0]
+# a_real_test, b_real_test = utils.cuda([a_real_test, b_real_test])
 for epoch in range(start_epoch, epochs):
     for i, (a_real, b_real) in enumerate(zip(a_loader, b_loader)):
         # step
@@ -100,9 +102,9 @@ for epoch in range(start_epoch, epochs):
         Gb.train()
 
         # leaves
-        a_real = Variable(a_real[0])
-        b_real = Variable(b_real[0])
-        a_real, b_real = utils.cuda([a_real, b_real])
+        a_real = a_real[0]
+        b_real = b_real[0]
+        # a_real, b_real = utils.cuda([a_real, b_real])
 
         # train G
         a_fake = Ga(b_real)
@@ -114,7 +116,7 @@ for epoch in range(start_epoch, epochs):
         # gen losses
         a_f_dis = Da(a_fake)
         b_f_dis = Db(b_fake)
-        r_label = utils.cuda(Variable(torch.ones(a_f_dis.size())))
+        r_label = utils.cuda(torch.ones(a_f_dis.size()))
         a_gen_loss = MSE(a_f_dis, r_label)
         b_gen_loss = MSE(b_f_dis, r_label)
 
@@ -133,8 +135,8 @@ for epoch in range(start_epoch, epochs):
         gb_optimizer.step()
 
         # leaves
-        a_fake = Variable(torch.Tensor(a_fake_pool([a_fake.cpu().data.numpy()])[0]))
-        b_fake = Variable(torch.Tensor(b_fake_pool([b_fake.cpu().data.numpy()])[0]))
+        a_fake = torch.Tensor(a_fake_pool([a_fake.cpu().data.numpy()])[0])
+        b_fake = torch.Tensor(b_fake_pool([b_fake.cpu().data.numpy()])[0])
         a_fake, b_fake = utils.cuda([a_fake, b_fake])
 
         # train D
@@ -142,8 +144,8 @@ for epoch in range(start_epoch, epochs):
         a_f_dis = Da(a_fake)
         b_r_dis = Db(b_real)
         b_f_dis = Db(b_fake)
-        r_label = utils.cuda(Variable(torch.ones(a_f_dis.size())))
-        f_label = utils.cuda(Variable(torch.zeros(a_f_dis.size())))
+        r_label = utils.cuda(torch.ones(a_f_dis.size()))
+        f_label = utils.cuda(torch.zeros(a_f_dis.size()))
 
         # d loss
         a_d_r_loss = MSE(a_r_dis, r_label)

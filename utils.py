@@ -5,7 +5,6 @@ from __future__ import print_function
 import copy
 import os
 import shutil
-import ctypes
 
 import numpy as np
 import torch
@@ -17,18 +16,6 @@ def mkdir(paths):
     for path in paths:
         if not os.path.isdir(path):
             os.makedirs(path)
-
-def symlink(source, link_name):
-    os_symlink = getattr(os, "symlink", None)
-    if callable(os_symlink):
-        os_symlink(source, link_name)
-    else:
-        csl = ctypes.windll.kernel32.CreateSymbolicLinkW
-        csl.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32)
-        csl.restype = ctypes.c_ubyte
-        flags = 1 if os.path.isdir(source) else 0
-        if csl(link_name, source, flags) == 0:
-            raise ctypes.WinError()
 
 def cuda_devices(gpu_ids):
     gpu_ids = [str(i) for i in gpu_ids]
@@ -101,7 +88,8 @@ def reorganize(dataset_dir):
             os.remove(os.path.join(dirs[key], '0'))
         except:
             pass
-        symlink(os.path.abspath(os.path.join(dataset_dir, key)), os.path.join(dirs[key], '0'))
+        os.symlink(os.path.abspath(os.path.join(dataset_dir, key)),
+                   os.path.join(dirs[key], '0'))
 
     return dirs
 

@@ -1,3 +1,5 @@
+### Based on https://github.com/LynnHo/CycleGAN-Tensorflow-PyTorch
+
 ## Download Datasets
 - Download the horse2zebra dataset:
 ```bash

@@ -7,6 +7,8 @@ import functools
 import torch.nn as nn
 import torch
 
+from ResNet.ResNet1d import ResNet1D
+
 
 def conv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
                   norm=nn.BatchNorm1d, relu=nn.ReLU):
@@ -68,22 +70,26 @@ class Generator(nn.Module):
         conv_bn_relu = conv_norm_act
         dconv_bn_relu = dconv_norm_act
 
-        self.ds = nn.Sequential(conv_bn_relu(1, dim * 1, 3, 3),
-                                conv_bn_relu(dim * 1, dim * 2, 3, 3))
+        self.ds = nn.Sequential(conv_bn_relu(1, 1, 3, 3),
+                                conv_bn_relu(1, 1, 3, 3))
 
-        self.us = nn.Sequential(dconv_bn_relu(dim * 2, dim * 1, 3, 3),
-                                dconv_bn_relu(dim * 1, 1, 3, 3))
+        self.res = ResNet1D(2,2,dim,4)
+
+        self.us = nn.Sequential(dconv_bn_relu(1, 1, 3, 3),
+                                dconv_bn_relu(1, 1, 3, 3))
 
     def forward(self, x):
 
         down_sample = self.ds(x)
 
-        fft_in = torch.rfft(down_sample, 3)
+        fft = torch.rfft(down_sample, 3)
+        fft_in = torch.transpose(fft, dim0=2, dim1=3).squeeze(0)
 
-        # res_out = self.res(fft_in)
+        res_out = self.res.forward(fft_in)
 
-        fft_out = torch.irfft(fft_in, 2, signal_sizes=down_sample.shape[1:])
+        fft_out = torch.transpose(res_out, dim0=1, dim1=2).unsqueeze(0)
+        ifft = torch.irfft(fft_out, 2, signal_sizes=down_sample.shape[1:])
 
-        up_sample = self.us(fft_out)
+        up_sample = self.us(ifft)
 
         return up_sample

@@ -83,7 +83,7 @@ except:
 """ run """
 a_real_test = iter(a_test_loader).next()[0]
 b_real_test = iter(b_test_loader).next()[0]
-# a_real_test, b_real_test = utils.cuda([a_real_test, b_real_test])
+a_real_test, b_real_test = utils.cuda([a_real_test, b_real_test])
 for epoch in range(start_epoch, epochs):
     for i, (a_real, b_real) in enumerate(zip(a_loader, b_loader)):
         # step
@@ -96,7 +96,7 @@ for epoch in range(start_epoch, epochs):
         # leaves
         a_real = a_real[0]
         b_real = b_real[0]
-        # a_real, b_real = utils.cuda([a_real, b_real])
+        a_real, b_real = utils.cuda([a_real, b_real])
 
         # train G
         a_fake = Ga(b_real)

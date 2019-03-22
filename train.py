@@ -28,17 +28,9 @@ dataset_dir = 'datasets/music2music'
 load_size = 286
 crop_size = 256
 
-# transform = transforms.Compose(
-#     [transforms.RandomHorizontalFlip(),
-#      transforms.Resize(load_size),
-#      transforms.RandomCrop(crop_size),
-#      transforms.ToTensor(),
-#      transforms.Normalize(mean=[0.5] * 3, std=[0.5] * 3)])
-
 transform=transforms.Compose([
-    transforms.PadTrim(133623,0),
-    transforms.LC2CL(),
-    transforms.DownmixMono()
+    transforms.PadTrim(1321344,0),
+    transforms.DownmixMono(True)
 ])
 
 dataset_dirs = utils.reorganize(dataset_dir)

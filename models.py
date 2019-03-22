@@ -5,20 +5,21 @@ from __future__ import print_function
 import functools
 
 import torch.nn as nn
+import torch
 
 
 def conv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
-                  norm=nn.BatchNorm2d, relu=nn.ReLU):
+                  norm=nn.BatchNorm1d, relu=nn.ReLU):
     return nn.Sequential(
-        nn.Conv2d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
+        nn.Conv1d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
         norm(out_dim),
         relu())
 
 
 def dconv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
-                   output_padding=0, norm=nn.BatchNorm2d, relu=nn.ReLU):
+                   output_padding=0, norm=nn.BatchNorm1d, relu=nn.ReLU):
     return nn.Sequential(
-        nn.ConvTranspose2d(in_dim, out_dim, kernel_size, stride,
+        nn.ConvTranspose1d(in_dim, out_dim, kernel_size, stride,
                            padding, output_padding, bias=False),
         norm(out_dim),
         relu())
@@ -67,24 +68,22 @@ class Generator(nn.Module):
         conv_bn_relu = conv_norm_act
         dconv_bn_relu = dconv_norm_act
 
-        self.ls = nn.Sequential(nn.ReflectionPad2d(3),
-                                conv_bn_relu(3, dim * 1, 7, 1),
-                                conv_bn_relu(dim * 1, dim * 2, 3, 2, 1),
-                                conv_bn_relu(dim * 2, dim * 4, 3, 2, 1),
-                                ResiduleBlock(dim * 4, dim * 4),
-                                ResiduleBlock(dim * 4, dim * 4),
-                                ResiduleBlock(dim * 4, dim * 4),
-                                ResiduleBlock(dim * 4, dim * 4),
-                                ResiduleBlock(dim * 4, dim * 4),
-                                ResiduleBlock(dim * 4, dim * 4),
-                                ResiduleBlock(dim * 4, dim * 4),
-                                ResiduleBlock(dim * 4, dim * 4),
-                                ResiduleBlock(dim * 4, dim * 4),
-                                dconv_bn_relu(dim * 4, dim * 2, 3, 2, 1, 1),
-                                dconv_bn_relu(dim * 2, dim * 1, 3, 2, 1, 1),
-                                nn.ReflectionPad2d(3),
-                                nn.Conv2d(dim, 3, 7, 1),
-                                nn.Tanh())
+        self.ds = nn.Sequential(conv_bn_relu(1, dim * 1, 3, 3),
+                                conv_bn_relu(dim * 1, dim * 2, 3, 3))
+
+        self.us = nn.Sequential(dconv_bn_relu(dim * 2, dim * 1, 3, 3),
+                                dconv_bn_relu(dim * 1, 1, 3, 3))
 
     def forward(self, x):
-        return self.ls(x)
+
+        down_sample = self.ds(x)
+
+        fft_in = torch.rfft(down_sample, 3)
+
+        # res_out = self.res(fft_in)
+
+        fft_out = torch.irfft(fft_in, 2, signal_sizes=down_sample.shape[1:])
+
+        up_sample = self.us(fft_out)
+
+        return up_sample

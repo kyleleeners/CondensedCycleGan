@@ -2,11 +2,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import torchaudio
+
 import models
 import torch
 from torch import nn
 from torch.utils import data
-import torchvision
 import torchaudio.transforms as transforms
 import utils
 from dataloader import AudioFolder
@@ -18,7 +19,7 @@ utils.cuda_devices(gpu_id)
 
 
 """ param """
-epochs = 200
+epochs = 10
 batch_size = 1
 lr = 0.0002
 dataset_dir = 'datasets/music2music'
@@ -38,14 +39,13 @@ a_data = AudioFolder(dataset_dirs['trainA'], transform=transform)
 b_data = AudioFolder(dataset_dirs['trainB'], transform=transform)
 a_test_data = AudioFolder(dataset_dirs['testA'], transform=transform)
 b_test_data = AudioFolder(dataset_dirs['testB'], transform=transform)
-a_loader = torch.utils.data.DataLoader(a_data, batch_size=batch_size, shuffle=True)
+a_loader = data.DataLoader(a_data, batch_size=batch_size, shuffle=True)
 b_loader = data.DataLoader(b_data, batch_size=batch_size, shuffle=True)
-a_test_loader = data.DataLoader(a_test_data, batch_size=3, shuffle=True)
-b_test_loader = data.DataLoader(b_test_data, batch_size=3, shuffle=True)
+a_test_loader = data.DataLoader(a_test_data, batch_size=1, shuffle=True)
+b_test_loader = data.DataLoader(b_test_data, batch_size=1, shuffle=True)
 
 a_fake_pool = utils.ItemPool()
 b_fake_pool = utils.ItemPool()
-
 
 """ model """
 Da = models.Discriminator()
@@ -60,7 +60,6 @@ da_optimizer = torch.optim.Adam(Da.parameters(), lr=lr, betas=(0.5, 0.999))
 db_optimizer = torch.optim.Adam(Db.parameters(), lr=lr, betas=(0.5, 0.999))
 ga_optimizer = torch.optim.Adam(Ga.parameters(), lr=lr, betas=(0.5, 0.999))
 gb_optimizer = torch.optim.Adam(Gb.parameters(), lr=lr, betas=(0.5, 0.999))
-
 
 """ load checkpoint """
 ckpt_dir = './checkpoints/music2music'
@@ -170,11 +169,23 @@ for epoch in range(start_epoch, epochs):
             a_rec_test = Ga(b_fake_test)
             b_rec_test = Gb(a_fake_test)
 
-            pic = (torch.cat([a_real_test, b_fake_test, a_rec_test, b_real_test, a_fake_test, b_rec_test], dim=0).data + 1) / 2.0
+            a_real_test_cpu = a_real_test.squeeze(0).cpu()
+            a_fake_test_cpu = a_fake_test.squeeze(0).cpu()
+            a_rec_test_cpu = a_rec_test.squeeze(0).cpu()
 
-            save_dir = './sample_images_while_training'
-            utils.mkdir(save_dir)
-            torchvision.utils.save_image(pic, '%s/Epoch_(%d)_(%dof%d).jpg' % (save_dir, epoch, i + 1, min(len(a_loader), len(b_loader))), nrow=3)
+            b_real_test_cpu = b_real_test.squeeze(0).cpu()
+            b_fake_test_cpu = b_fake_test.squeeze(0).cpu()
+            b_rec_test_cpu = b_rec_test.squeeze(0).cpu()
+
+            save_dir = './samples_while_training/epoch_%d' % epoch
+            utils.mkdir([save_dir])
+
+            torchaudio.save('%s/a_real.mp3' % save_dir, a_real_test_cpu, 44100)
+            torchaudio.save('%s/a_fake.mp3' % save_dir, a_fake_test_cpu, 44100)
+            torchaudio.save('%s/a_rec.mp3' % save_dir, a_rec_test_cpu, 44100)
+            torchaudio.save('%s/b_real.mp3' % save_dir, b_real_test_cpu, 44100)
+            torchaudio.save('%s/b_fake.mp3' % save_dir, b_fake_test_cpu, 44100)
+            torchaudio.save('%s/b_rec.mp3' % save_dir, b_rec_test_cpu, 44100)
 
     utils.save_checkpoint({'epoch': epoch + 1,
                            'Da': Da.state_dict(),

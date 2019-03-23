@@ -84,11 +84,11 @@ class Generator(nn.Module):
         down_sample = self.ds(x)
 
         fft = torch.rfft(down_sample, 3)
-        fft_in = torch.transpose(fft, dim0=2, dim1=3).squeeze(0)
+        fft_in = torch.transpose(fft, dim0=2, dim1=3).squeeze(1)
 
         res_out = self.res.forward(fft_in)
 
-        fft_out = torch.transpose(res_out, dim0=1, dim1=2).unsqueeze(0)
+        fft_out = torch.transpose(res_out, dim0=1, dim1=2).unsqueeze(1)
         ifft = torch.irfft(fft_out, 2, signal_sizes=down_sample.shape[1:])
 
         up_sample = self.us(ifft)

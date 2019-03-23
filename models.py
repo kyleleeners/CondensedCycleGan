@@ -2,12 +2,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import functools
-
 import torch.nn as nn
 import torch
 
 from ResNet.ResNet1d import ResNet1D
+from WaveNet2.WaveNetEncoder.WaveNetClassifier import WaveNetClassifier
 
 
 def conv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
@@ -29,20 +28,23 @@ def dconv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
 
 class Discriminator(nn.Module):
 
-    def __init__(self, dim=64):
+    def __init__(self):
         super(Discriminator, self).__init__()
 
-        lrelu = functools.partial(nn.LeakyReLU, negative_slope=0.2)
-        conv_bn_lrelu = functools.partial(conv_norm_act, relu=lrelu)
+        encoder_dict = {
+            'n_channels': 1,
+            'n_layers': 10,
+            'max_dilation': 128,
+            'n_residual_channels': 3,
+            'n_dilated_channels': 6,
+            'encoding_factor': 500,
+            'encoding_stride': 500
+        }
 
-        self.ls = nn.Sequential(nn.Conv2d(3, dim, 4, 2, 1), nn.LeakyReLU(0.2),
-                                conv_bn_lrelu(dim * 1, dim * 2, 4, 2, 1),
-                                conv_bn_lrelu(dim * 2, dim * 4, 4, 2, 1),
-                                conv_bn_lrelu(dim * 4, dim * 8, 4, 1, (1, 2)),
-                                nn.Conv2d(dim * 8, 1, 4, 1, (2, 1)))
+        self.wc = WaveNetClassifier(encoder_dict, 1321344)
 
     def forward(self, x):
-        return self.ls(x)
+        return self.wc.forward(x)
 
 
 class ResiduleBlock(nn.Module):
@@ -73,13 +75,12 @@ class Generator(nn.Module):
         self.ds = nn.Sequential(conv_bn_relu(1, 1, 3, 3),
                                 conv_bn_relu(1, 1, 3, 3))
 
-        self.res = ResNet1D(2,2,dim,4)
+        self.res = ResNet1D(2, 2, dim, 4)
 
         self.us = nn.Sequential(dconv_bn_relu(1, 1, 3, 3),
                                 dconv_bn_relu(1, 1, 3, 3))
 
     def forward(self, x):
-
         down_sample = self.ds(x)
 
         fft = torch.rfft(down_sample, 3)

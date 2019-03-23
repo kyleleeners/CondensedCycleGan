@@ -64,7 +64,7 @@ gb_optimizer = torch.optim.Adam(Gb.parameters(), lr=lr, betas=(0.5, 0.999))
 
 """ load checkpoint """
 ckpt_dir = './checkpoints/music2music'
-utils.mkdir(ckpt_dir)
+utils.mkdir([ckpt_dir])
 try:
     ckpt = utils.load_checkpoint(ckpt_dir)
     start_epoch = ckpt['epoch']

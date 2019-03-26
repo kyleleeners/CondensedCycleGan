@@ -72,12 +72,12 @@ class Generator(nn.Module):
         conv_bn_relu = conv_norm_act
         dconv_bn_relu = dconv_norm_act
 
-        self.ds = nn.Sequential(conv_bn_relu(1, 1, 3, 3),
-                                conv_bn_relu(1, 1, 3, 3))
+        self.ds = nn.Sequential(conv_bn_relu(1, 1, 3, 3, relu=nn.Tanh()),
+                                conv_bn_relu(1, 1, 3, 3, relu=nn.Tanh()))
 
         self.res = ResNet1D(2, 2, dim, 4)
 
-        self.us = nn.Sequential(dconv_bn_relu(1, 1, 3, 3),
+        self.us = nn.Sequential(dconv_bn_relu(1, 1, 3, 3, relu=nn.Tanh()),
                                 dconv_bn_relu(1, 1, 3, 3, relu=nn.Tanh()))
 
     def forward(self, x):

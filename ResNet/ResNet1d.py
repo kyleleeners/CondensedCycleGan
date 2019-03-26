@@ -56,7 +56,7 @@ class ResNet1D(torch.nn.Module):
 
 		#last block.
 		#self.blocks.append(conv_bn_relu(r_channels, n_channel_out, 3, 1, 1))
-		self.block.append(nn.Conv1d(r_channels, n_channel_out,, 3, 1, 1))
+		self.blocks.append(nn.Conv1d(r_channels, n_channel_out, 3, 1, 1))
 
 	#Forward model.
 	def forward(self, signal):

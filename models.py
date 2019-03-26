@@ -10,11 +10,11 @@ from WaveNet2.WaveNetEncoder.WaveNetClassifier import WaveNetClassifier
 
 
 def conv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
-                  norm=nn.BatchNorm1d, relu=nn.ReLU):
+                  norm=nn.BatchNorm1d, act=nn.Tanh):
     return nn.Sequential(
         nn.Conv1d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
         norm(out_dim),
-        relu())
+        act())
 
 
 def dconv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
@@ -41,7 +41,7 @@ class Discriminator(nn.Module):
             'encoding_stride': 500
         }
 
-        self.wc = WaveNetClassifier(encoder_dict, 1321344)
+        self.wc = WaveNetClassifier(encoder_dict, 399996)
 
     def forward(self, x):
         return self.wc.forward(x)
@@ -72,13 +72,13 @@ class Generator(nn.Module):
         conv_bn_relu = conv_norm_act
         dconv_bn_relu = dconv_norm_act
 
-        self.ds = nn.Sequential(conv_bn_relu(1, 1, 3, 3, relu=nn.Tanh()),
-                                conv_bn_relu(1, 1, 3, 3, relu=nn.Tanh()))
+        self.ds = nn.Sequential(conv_bn_relu(1, 1, 3, 3),
+                                conv_bn_relu(1, 1, 3, 3))
 
         self.res = ResNet1D(2, 2, dim, 4)
 
-        self.us = nn.Sequential(dconv_bn_relu(1, 1, 3, 3, relu=nn.Tanh()),
-                                dconv_bn_relu(1, 1, 3, 3, relu=nn.Tanh()))
+        self.us = nn.Sequential(dconv_bn_relu(1, 1, 3, 3),
+                                dconv_bn_relu(1, 1, 3, 3))
 
     def forward(self, x):
         down_sample = self.ds(x)

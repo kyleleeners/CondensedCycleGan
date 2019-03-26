@@ -20,7 +20,7 @@ utils.cuda_devices(gpu_id)
 
 """ param """
 epochs = 10
-batch_size = 1
+batch_size = 5
 lr = 0.0002
 dataset_dir = 'datasets/music2music'
 
@@ -30,7 +30,7 @@ load_size = 286
 crop_size = 256
 
 transform=transforms.Compose([
-    transforms.PadTrim(1321344,0),
+    transforms.PadTrim(399996,0),
     transforms.DownmixMono(True)
 ])
 

@@ -78,7 +78,7 @@ class Generator(nn.Module):
         self.res = ResNet1D(2, 2, dim, 4)
 
         self.us = nn.Sequential(dconv_bn_relu(1, 1, 3, 3),
-                                dconv_bn_relu(1, 1, 3, 3))
+                                dconv_bn_relu(1, 1, 3, 3, relu=nn.Tanh()))
 
     def forward(self, x):
         down_sample = self.ds(x)

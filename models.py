@@ -18,12 +18,12 @@ def conv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
 
 
 def dconv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
-                   output_padding=0, norm=nn.BatchNorm1d, relu=nn.ReLU):
+                   output_padding=0, norm=nn.BatchNorm1d, act=nn.Tanh):
     return nn.Sequential(
         nn.ConvTranspose1d(in_dim, out_dim, kernel_size, stride,
                            padding, output_padding, bias=False),
         norm(out_dim),
-        relu())
+        act())
 
 
 class Discriminator(nn.Module):
@@ -33,7 +33,7 @@ class Discriminator(nn.Module):
 
         encoder_dict = {
             'n_channels': 1,
-            'n_layers': 10,
+            'n_layers': 5,
             'max_dilation': 128,
             'n_residual_channels': 3,
             'n_dilated_channels': 6,
@@ -75,7 +75,7 @@ class Generator(nn.Module):
         self.ds = nn.Sequential(conv_bn_relu(1, 1, 3, 3),
                                 conv_bn_relu(1, 1, 3, 3))
 
-        self.res = ResNet1D(2, 2, dim, 4)
+        self.res = ResNet1D(2, 2, dim, 5)
 
         self.us = nn.Sequential(dconv_bn_relu(1, 1, 3, 3),
                                 dconv_bn_relu(1, 1, 3, 3))

@@ -19,8 +19,8 @@ utils.cuda_devices(gpu_id)
 
 
 """ param """
-epochs = 10
-batch_size = 5
+epochs = 300
+batch_size = 6
 lr = 0.0002
 dataset_dir = 'datasets/music2music'
 
@@ -158,9 +158,14 @@ for epoch in range(start_epoch, epochs):
         if (i + 1) % 1 == 0:
             print("Epoch: (%3d) (%5d/%5d)" % (epoch, i + 1, min(len(a_loader), len(b_loader))))
 
-        if (i + 1) % 100 == 0:
+        if (i + 1) % min(len(a_loader), len(b_loader)) == 0:
             Ga.eval()
             Gb.eval()
+
+            #Try a new song
+            a_real_test = iter(a_test_loader).next()[0]
+            b_real_test = iter(b_test_loader).next()[0]
+            a_real_test, b_real_test = utils.cuda([a_real_test, b_real_test])
 
             # train G
             a_fake_test = Ga(b_real_test)

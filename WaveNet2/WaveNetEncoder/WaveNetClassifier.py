@@ -30,4 +30,5 @@ class WaveNetClassifier(torch.nn.Module):
         signal = self.linear(signal)
 
         # return p.
-        return self.activation(signal)
+        #return self.activation(signal)
+        return signal

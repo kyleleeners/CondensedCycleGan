@@ -34,9 +34,9 @@ class Discriminator(nn.Module):
         encoder_dict = {
             'n_channels': 1,
             'n_layers': 5,
-            'max_dilation': 128,
-            'n_residual_channels': 3,
-            'n_dilated_channels': 6,
+            'max_dilation': 1024,
+            'n_residual_channels': 8,
+            'n_dilated_channels': 8,
             'encoding_factor': 500,
             'encoding_stride': 500
         }
@@ -47,26 +47,10 @@ class Discriminator(nn.Module):
         return self.wc.forward(x)
 
 
-class ResiduleBlock(nn.Module):
-
-    def __init__(self, in_dim, out_dim):
-        super(ResiduleBlock, self).__init__()
-
-        conv_bn_relu = conv_norm_act
-
-        self.ls = nn.Sequential(nn.ReflectionPad2d(1),
-                                conv_bn_relu(in_dim, out_dim, 3, 1),
-                                nn.ReflectionPad2d(1),
-                                nn.Conv2d(out_dim, out_dim, 3, 1),
-                                nn.BatchNorm2d(out_dim))
-
-    def forward(self, x):
-        return x + self.ls(x)
-
 
 class Generator(nn.Module):
 
-    def __init__(self, dim=64):
+    def __init__(self, dim=32):
         super(Generator, self).__init__()
 
         conv_bn_relu = conv_norm_act
@@ -75,10 +59,13 @@ class Generator(nn.Module):
         self.ds = nn.Sequential(conv_bn_relu(1, 1, 3, 3),
                                 conv_bn_relu(1, 1, 3, 3))
 
-        self.res = ResNet1D(2, 2, dim, 5)
+        self.res = ResNet1D(2, 2, dim, 6)
 
         self.us = nn.Sequential(dconv_bn_relu(1, 1, 3, 3),
                                 dconv_bn_relu(1, 1, 3, 3))
+
+        #Add a long scale filter to help with gibbs.
+        self.deGibbs = nn.Conv1d(1, 1, 1001, 1, 500, bias=False)
 
     def forward(self, x):
         down_sample = self.ds(x)
@@ -93,4 +80,9 @@ class Generator(nn.Module):
 
         up_sample = self.us(ifft)
 
-        return up_sample
+        #Hopefully this can learn to kill ringing.
+        out = self.deGibbs(up_sample)
+
+        out = torch.tanh(out)
+
+        return out

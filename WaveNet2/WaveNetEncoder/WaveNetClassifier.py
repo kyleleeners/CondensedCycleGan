@@ -1,6 +1,23 @@
 import torch
 from WaveNet2.WaveNetEncoder.WaveNetEncoder import WaveNetEncoder
+import torch.nn as nn
 
+#1D Convulution use from wavenet code here: TODO: put link here
+def conv1d_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
+          norm=nn.BatchNorm1d, relu=nn.ReLU):
+  return nn.Sequential(
+    nn.Conv1d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
+    norm(out_dim),
+    relu())
+
+
+def dconv1d_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
+           output_padding=0, norm=nn.BatchNorm1d, relu=nn.ReLU):
+  return nn.Sequential(
+    nn.ConvTranspose1d(in_dim, out_dim, kernel_size, stride,
+               padding, output_padding, bias=False),
+    norm(out_dim),
+    relu())
 
 class WaveNetClassifier(torch.nn.Module):
     def __init__(self, encoder_dict, inputsize, activation=torch.nn.Sigmoid()):
@@ -16,8 +33,10 @@ class WaveNetClassifier(torch.nn.Module):
                                       encoding_stride=encoder_dict["encoding_stride"])
 
         # Figure out encoding size.
+        self.ds = conv1d_norm_act(encoder_dict["n_channels"], encoder_dict["n_channels"],
+         encoder_dict['down_sample'], encoder_dict['down_sample'])
         zerovect = torch.zeros(1, encoder_dict["n_channels"], inputsize)
-        out = self.encoder(zerovect)
+        out = self.encoder(self.ds(zerovect))
         self.encodingSize = out.size(2)
 
         # Build the linear layer.
@@ -26,6 +45,7 @@ class WaveNetClassifier(torch.nn.Module):
 
     def forward(self, signal):
         # Encode and get Negative log likelyhood.
+        signal = self.ds(signal)
         signal = self.encoder(signal)
         signal = self.linear(signal)
 

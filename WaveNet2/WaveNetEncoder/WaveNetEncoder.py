@@ -57,7 +57,8 @@ class WaveNetEncoder(torch.nn.Module):
 
 			#Build Dialation later 
 			#We made n_dilated_channels a hyperparameter, but there is no mention of what they used in Engel, Resnick et al
-			d_layer = Conv(self.n_residual_channels, self.n_dilated_channels,kernel_size=2, dilation=dilation, w_init_gain='tanh')
+			#We will likely need to increas kernal size.
+			d_layer = Conv(self.n_residual_channels, self.n_dilated_channels, kernel_size=2*(i+1), dilation=dilation, w_init_gain='tanh')
 			self.dilate_layers.append(d_layer)
 
 			#Build Res layer 

@@ -25,8 +25,8 @@ class ResiduleBlock(nn.Module):
 
 		conv_bn_relu = conv1d_norm_act
 
-		self.ls = nn.Sequential(conv_bn_relu(in_dim, out_dim, 11, 1, 5),
-								nn.Conv1d(out_dim, out_dim, 11, 1, 5),
+		self.ls = nn.Sequential(conv_bn_relu(in_dim, out_dim, 5, 1, 2),
+								nn.Conv1d(out_dim, out_dim, 5, 1, 2),
 								nn.BatchNorm1d(out_dim))
 
 	def forward(self, x):
@@ -56,7 +56,7 @@ class ResNet1D(torch.nn.Module):
 
 		#last block.
 		#self.blocks.append(conv_bn_relu(r_channels, n_channel_out, 3, 1, 1))
-		self.blocks.append(nn.Conv1d(r_channels, n_channel_out, 11, 1, 5))
+		self.blocks.append(nn.Conv1d(r_channels, n_channel_out, 3, 1, 1))
 
 	#Forward model.
 	def forward(self, signal):

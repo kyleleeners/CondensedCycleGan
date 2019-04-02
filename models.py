@@ -34,65 +34,38 @@ class Discriminator(nn.Module):
 
         encoder_dict = {
             'n_channels': 1,
-            'n_layers':7,
-            'max_dilation': 256,
-            'down_sample': 6,
+            'n_layers':8,
+            'max_dilation': 512,
+            'down_sample': 14,
             'n_residual_channels': 64,
             'n_dilated_channels': 64,
             'encoding_factor': 250,
             'encoding_stride': 250
         }
 
-        self.wc = WaveNetClassifier(encoder_dict, 399996)
+        self.wc = WaveNetClassifier(encoder_dict, 199980)
 
     def forward(self, x):
         return self.wc.forward(x)
 
-class DiscriminatorR(nn.Module):
-
-    def __init__(self, dim=16, n_length=399996, enc_fact=100, ds_fact=4):
-        super(DiscriminatorR, self).__init__()
-
-        self.ds = nn.Sequential(conv_bn_relu(1, 1, ds_fact, ds_fact),
-                                conv_bn_relu(1, 1, ds_fact, ds_fact))
-
-        self.res = ResNet1D(dim, dim, dim, 4)
-        self.conv1=conv_norm_act(1, dim, 101, 50)
-        self.conv2=conv_norm_act(dim, 1, enc_fact, enc_fact)
-
-        zeros = torch.zeros(1,n_length).unsqueeze(0)
-        zeros = self.ds(zeros)
-        zeros = self.conv1(zeros)
-        zeros = self.res.forward(zeros)
-        zeros = self.conv2(zeros)
-
-        #Test the layers
-        self.linear = torch.nn.Linear(zeros.size(2),1)
-
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.res.forward(x)
-        x = self.conv2(x)
-        return self.linear(x)
-
-
 
 class Generator(nn.Module):
 
-    def __init__(self, dim=256):
+    def __init__(self, dim=128):
         super(Generator, self).__init__()
 
         conv_bn_relu = conv_norm_act
         dconv_bn_relu = dconv_norm_act
 
-        self.ds = nn.Sequential(conv_bn_relu(1, 1, 6, 6),
-                                conv_bn_relu(1, 1, 6, 6))
+        self.ds = nn.Sequential(conv_bn_relu(1, dim, 5, 5),
+                                conv_bn_relu(dim, dim, 4, 4),
+                                nn.Conv1d(dim, 1, 1, 1, 0, bias=False))
 
-        self.res = ResNet1D(2, 2, dim, 6)
+        self.res = ResNet1D(2, 2, dim, 8)
 
-        self.us = nn.Sequential(dconv_bn_relu(1, 1, 6, 6),
-                                nn.ConvTranspose1d(1, 1, 6, 6, 0, 0, bias=False))
+        self.us = nn.Sequential(dconv_bn_relu(1, dim, 4, 4),
+        						dconv_bn_relu(dim, dim, 5, 5),
+                                nn.Conv1d(dim, 1, 1, 1, 0, bias=False))
         #nn.ConvTranspose1d(1, 1, 6, 6, 0, 0, bias=False)
         #Add a long scale filter to help with gibbs.
         self.deGibbs = nn.Conv1d(1, 1, 1001, 1, 500, bias=False)

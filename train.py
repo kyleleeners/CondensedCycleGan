@@ -22,7 +22,7 @@ torch.cuda.empty_cache()
 
 """ param """
 epochs = 300
-batch_size = 6
+batch_size = 4
 lr = 0.0002
 dataset_dir = 'datasets/music2music'
 

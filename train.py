@@ -11,16 +11,18 @@ from torch.utils import data
 import torchaudio.transforms as transforms
 import utils
 from dataloader import AudioFolder
+#from WaveNet2.WaveNetGenerator import WaveNetGenerator
 
 
 """ gpu """
 gpu_id = [0]
 utils.cuda_devices(gpu_id)
+torch.cuda.empty_cache()
 
 
 """ param """
 epochs = 300
-batch_size = 6
+batch_size = 4
 lr = 0.0002
 dataset_dir = 'datasets/music2music'
 
@@ -30,7 +32,7 @@ load_size = 286
 crop_size = 256
 
 transform=transforms.Compose([
-    transforms.PadTrim(399996,0),
+    transforms.PadTrim(199980,0),
     transforms.DownmixMono(True)
 ])
 
@@ -87,6 +89,10 @@ for epoch in range(start_epoch, epochs):
     for i, (a_real, b_real) in enumerate(zip(a_loader, b_loader)):
         # step
         step = epoch * min(len(a_loader), len(b_loader)) + i + 1
+
+        #Add this in.
+        #a_real.squeeze(1)
+        #b_real.squeeze(1)
 
         # set train
         Ga.train()
@@ -155,8 +161,12 @@ for epoch in range(start_epoch, epochs):
         da_optimizer.step()
         db_optimizer.step()
 
+        torch.cuda.empty_cache()
+
         if (i + 1) % 1 == 0:
             print("Epoch: (%3d) (%5d/%5d)" % (epoch, i + 1, min(len(a_loader), len(b_loader))))
+            print("A discrim loss: %5f Gen loss: %5f rec loss: %5f" % (a_d_loss, a_gen_loss, a_rec_loss))
+            print("B discrim loss: %5f Gen loss: %5f rec loss: %5f" % (b_d_loss, b_gen_loss, b_rec_loss))
 
         if (i + 1) % min(len(a_loader), len(b_loader)) == 0:
             Ga.eval()
@@ -185,12 +195,12 @@ for epoch in range(start_epoch, epochs):
             save_dir = './samples_while_training/epoch_%d' % epoch
             utils.mkdir([save_dir])
 
-            torchaudio.save('%s/a_real.mp3' % save_dir, a_real_test_cpu, 44100)
-            torchaudio.save('%s/a_fake.mp3' % save_dir, a_fake_test_cpu, 44100)
-            torchaudio.save('%s/a_rec.mp3' % save_dir, a_rec_test_cpu, 44100)
-            torchaudio.save('%s/b_real.mp3' % save_dir, b_real_test_cpu, 44100)
-            torchaudio.save('%s/b_fake.mp3' % save_dir, b_fake_test_cpu, 44100)
-            torchaudio.save('%s/b_rec.mp3' % save_dir, b_rec_test_cpu, 44100)
+            torchaudio.save('%s/a_real.wav' % save_dir, a_real_test_cpu, 44100)
+            torchaudio.save('%s/a_fake.wav' % save_dir, a_fake_test_cpu, 44100)
+            torchaudio.save('%s/a_rec.wav' % save_dir, a_rec_test_cpu, 44100)
+            torchaudio.save('%s/b_real.wav' % save_dir, b_real_test_cpu, 44100)
+            torchaudio.save('%s/b_fake.wav' % save_dir, b_fake_test_cpu, 44100)
+            torchaudio.save('%s/b_rec.wav' % save_dir, b_rec_test_cpu, 44100)
 
     utils.save_checkpoint({'epoch': epoch + 1,
                            'Da': Da.state_dict(),

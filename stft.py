@@ -58,7 +58,7 @@ def istft(stft_matrix, hop_length=None, win_length=None, window='hann',
 # hop_length = n_fft // 4
 # dura = 2.0
 # sr = 16000
-# src_np, sr = librosa.load("MusicDelta_Disco_Drum.wav", sr=sr, duration=dura)
+# src_np, sr = librosa.load("/home/kyle/Desktop/Repos/CondensedCycleGan/datasets/music2music/testA/500.wav", sr=sr, duration=dura)
 # src = torch.tensor(src_np)
 # print(src.shape)  # ([32000])
 #

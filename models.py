@@ -1,12 +1,10 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from stft import istft
 
 import functools
 
 import torch.nn as nn
-import torch
 
 
 def conv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
@@ -28,17 +26,17 @@ def dconv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
 
 class Discriminator(nn.Module):
 
-    def __init__(self, dim=64):
+    def __init__(self, dim=32):
         super(Discriminator, self).__init__()
 
         lrelu = functools.partial(nn.LeakyReLU, negative_slope=0.2)
         conv_bn_lrelu = functools.partial(conv_norm_act, relu=lrelu)
 
-        self.ls = nn.Sequential(nn.Conv2d(3, dim, 4, 2, 1), nn.LeakyReLU(0.2),
+        self.ls = nn.Sequential(nn.Conv2d(2, dim, 4, 2, 1), nn.LeakyReLU(0.2),
                                 conv_bn_lrelu(dim * 1, dim * 2, 4, 2, 1),
                                 conv_bn_lrelu(dim * 2, dim * 4, 4, 2, 1),
                                 conv_bn_lrelu(dim * 4, dim * 8, 4, 1, (1, 2)),
-                                nn.Conv2d(dim * 8, 1, 4, 1, (2, 1)))
+                                nn.Conv2d(dim * 8, 2, 4, 1, (2, 1)))
 
     def forward(self, x):
         return self.ls(x)
@@ -69,7 +67,7 @@ class Generator(nn.Module):
         conv_bn_relu = conv_norm_act
         dconv_bn_relu = dconv_norm_act
 
-        self.ls = nn.Sequential(conv_bn_relu(1025, dim * 1, 7, 1),
+        self.ls = nn.Sequential(conv_bn_relu(2, dim * 1, 7, 1),
                                 conv_bn_relu(dim * 1, dim * 2, 3, 2, 1),
                                 conv_bn_relu(dim * 2, dim * 4, 3, 2, 1),
                                 ResiduleBlock(dim * 4, dim * 4),
@@ -83,19 +81,8 @@ class Generator(nn.Module):
                                 ResiduleBlock(dim * 4, dim * 4),
                                 dconv_bn_relu(dim * 4, dim * 2, 3, 2, 1, 1),
                                 dconv_bn_relu(dim * 2, dim * 1, 3, 2, 1, 1),
-                                nn.ReflectionPad2d(3),
-                                nn.Conv2d(dim, 3, 7, 1),
-                                nn.Tanh())
+                                nn.ConvTranspose2d(dim,2,1,1))
 
     def forward(self, x):
-
-        x_squeeze = x.squeeze(1)
-
-        stft = torch.stft(x_squeeze, 2048)
-
-        gen_out = self.ls(stft)
-
-        y = istft(gen_out)
-
-        return y
+        return self.ls(x)
 

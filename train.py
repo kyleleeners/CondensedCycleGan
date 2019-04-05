@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import torchaudio
 
-import models
+import modelsSwapFFT
 import torch
 from torch import nn
 from torch.utils import data
@@ -22,8 +22,8 @@ torch.cuda.empty_cache()
 
 """ param """
 epochs = 300
-batch_size = 4
-lr = 0.0002
+batch_size = 1
+lr = 0.0001
 dataset_dir = 'datasets/music2music'
 
 
@@ -32,7 +32,7 @@ load_size = 286
 crop_size = 256
 
 transform=transforms.Compose([
-    transforms.PadTrim(199980,0),
+    transforms.PadTrim(199979,0),
     transforms.DownmixMono(True)
 ])
 
@@ -50,10 +50,10 @@ a_fake_pool = utils.ItemPool()
 b_fake_pool = utils.ItemPool()
 
 """ model """
-Da = models.Discriminator()
-Db = models.Discriminator()
-Ga = models.Generator()
-Gb = models.Generator()
+Da = modelsSwapFFT.Discriminator()
+Db = modelsSwapFFT.Discriminator()
+Ga = modelsSwapFFT.Generator()
+Gb = modelsSwapFFT.Generator()
 MSE = nn.MSELoss()
 L1 = nn.L1Loss()
 utils.cuda([Da, Db, Ga, Gb])
@@ -90,10 +90,6 @@ for epoch in range(start_epoch, epochs):
         # step
         step = epoch * min(len(a_loader), len(b_loader)) + i + 1
 
-        #Add this in.
-        #a_real.squeeze(1)
-        #b_real.squeeze(1)
-
         # set train
         Ga.train()
         Gb.train()
@@ -106,9 +102,14 @@ for epoch in range(start_epoch, epochs):
         # train G
         a_fake = Ga(b_real)
         b_fake = Gb(a_real)
-
         a_rec = Ga(b_fake)
         b_rec = Gb(a_fake)
+
+        # discrim require no grads when optimizing G
+        nets = [Da, Db]
+        for net in nets:
+            for param in net.parameters():
+                param.requires_grad = False
 
         # gen losses
         a_f_dis = Da(a_fake)
@@ -131,6 +132,12 @@ for epoch in range(start_epoch, epochs):
         ga_optimizer.step()
         gb_optimizer.step()
 
+        # discrim require no grads when optimizing G
+        nets = [Da, Db]
+        for net in nets:
+            for param in net.parameters():
+                param.requires_grad = True
+
         # leaves
         a_fake = torch.Tensor(a_fake_pool([a_fake.cpu().data.numpy()])[0])
         b_fake = torch.Tensor(b_fake_pool([b_fake.cpu().data.numpy()])[0])
@@ -150,8 +157,8 @@ for epoch in range(start_epoch, epochs):
         b_d_r_loss = MSE(b_r_dis, r_label)
         b_d_f_loss = MSE(b_f_dis, f_label)
 
-        a_d_loss = a_d_r_loss + a_d_f_loss
-        b_d_loss = b_d_r_loss + b_d_f_loss
+        a_d_loss = (a_d_r_loss + a_d_f_loss) * 0.5
+        b_d_loss = (b_d_r_loss + b_d_f_loss) * 0.5
 
         # backward
         Da.zero_grad()
@@ -169,8 +176,11 @@ for epoch in range(start_epoch, epochs):
             print("B discrim loss: %5f Gen loss: %5f rec loss: %5f" % (b_d_loss, b_gen_loss, b_rec_loss))
 
         if (i + 1) % min(len(a_loader), len(b_loader)) == 0:
-            Ga.eval()
-            Gb.eval()
+
+            nets = [Ga, Gb]
+            for net in nets:
+                for param in net.parameters():
+                    param.requires_grad = False
 
             #Try a new song
             a_real_test = iter(a_test_loader).next()[0]
@@ -183,6 +193,10 @@ for epoch in range(start_epoch, epochs):
 
             a_rec_test = Ga(b_fake_test)
             b_rec_test = Gb(a_fake_test)
+
+            for net in nets:
+                for param in net.parameters():
+                    param.requires_grad = True
 
             a_real_test_cpu = a_real_test.squeeze(0).cpu()
             a_fake_test_cpu = a_fake_test.squeeze(0).cpu()

@@ -37,13 +37,13 @@ class Discriminator(nn.Module):
             'n_layers':8,
             'max_dilation': 512,
             'down_sample': 14,
-            'n_residual_channels': 64,
-            'n_dilated_channels': 64,
+            'n_residual_channels': 128,
+            'n_dilated_channels': 128,
             'encoding_factor': 250,
             'encoding_stride': 250
         }
 
-        self.wc = WaveNetClassifier(encoder_dict, 199980)
+        self.wc = WaveNetClassifier(encoder_dict, 199979)
 
     def forward(self, x):
         return self.wc.forward(x)
@@ -51,7 +51,7 @@ class Discriminator(nn.Module):
 
 class Generator(nn.Module):
 
-    def __init__(self, dim=128):
+    def __init__(self, dim=256):
         super(Generator, self).__init__()
 
         conv_bn_relu = conv_norm_act
@@ -60,19 +60,20 @@ class Generator(nn.Module):
         self.ds = nn.Sequential(conv_bn_relu(2, dim, 5, 5),
                                 conv_bn_relu(dim, dim, 3, 3))
 
-        self.res = ResNet1D(dim, dim, dim, 8)
+        self.res = ResNet1D(dim, dim, dim, 20)
 
         self.us = nn.Sequential(dconv_bn_relu(dim, dim, 3, 3),
-        						dconv_bn_relu(dim, dim, 5, 5),
+                                dconv_bn_relu(dim, dim, 5, 5),
                                 nn.Conv1d(dim, 2, 1, 1, 0, bias=False))
-        #nn.ConvTranspose1d(1, 1, 6, 6, 0, 0, bias=False)
+
         #Add a long scale filter to help with gibbs.
-        self.deGibbs = nn.Conv1d(1, 1, 1001, 1, 500, bias=False)
+        self.deGibbs = nn.Conv1d(1, 1, 2001, 1, 1000, bias=False)
 
     def forward(self, x):
 
     	#Fourier Transform the signal
-        rfft_squeeze = torch.rfft(x, 2).squeeze(1)
+        rfft = torch.rfft(x, 2)
+        rfft_squeeze = rfft.squeeze(1)
         rfft_squeeze_transpose = torch.transpose(rfft_squeeze, dim0=1, dim1=2)
 
         #Downsample fft
@@ -83,18 +84,17 @@ class Generator(nn.Module):
 
         #Upsample freqs
         up_sample = self.us(res_out)
-        #print(up_sample.shape)
 
         #Inverse fft
-        up_sample_transpose_unsqueeze = torch.transpose(up_sample, dim0=1, dim1=2).unsqueeze(1)
-        print(up_sample_transpose_unsqueeze.shape)
+        up_sample_transpose = torch.transpose(up_sample, dim0=1, dim1=2)
+        up_sample_transpose_unsqueeze = up_sample_transpose.unsqueeze(1)
 
-        ifft = torch.irfft(up_sample_transpose_unsqueeze, 2, signal_sizes=x.shape[1:])
+        ifft = torch.irfft(up_sample_transpose_unsqueeze, 2)
 
         #Kill the rining with final filter.
-        out = self.deGibbs(ifft)
+        # out = self.deGibbs(ifft)
 
         #Output between [-1,1]
-        out = torch.tanh(out)
+        out = torch.tanh(ifft)
 
         return out

@@ -1,91 +1,101 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from stft import istft
+
+import functools
 
 import torch.nn as nn
 import torch
 
-from ResNet.ResNet1d import ResNet1D
-from WaveNet2.WaveNetEncoder.WaveNetClassifier import WaveNetClassifier
-#from WaveNet2.WaveNetGenerator import WaveNetGenerator
-
 
 def conv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
-                  norm=nn.BatchNorm1d, act=nn.Tanh):
+                  norm=nn.BatchNorm2d, relu=nn.ReLU):
     return nn.Sequential(
-        nn.Conv1d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
+        nn.Conv2d(in_dim, out_dim, kernel_size, stride, padding, bias=False),
         norm(out_dim),
-        act())
+        relu())
 
 
 def dconv_norm_act(in_dim, out_dim, kernel_size, stride, padding=0,
-                   output_padding=0, norm=nn.BatchNorm1d, act=nn.Tanh):
+                   output_padding=0, norm=nn.BatchNorm2d, relu=nn.ReLU):
     return nn.Sequential(
-        nn.ConvTranspose1d(in_dim, out_dim, kernel_size, stride,
+        nn.ConvTranspose2d(in_dim, out_dim, kernel_size, stride,
                            padding, output_padding, bias=False),
         norm(out_dim),
-        act())
+        relu())
 
 
 class Discriminator(nn.Module):
 
-    def __init__(self):
+    def __init__(self, dim=64):
         super(Discriminator, self).__init__()
 
-        encoder_dict = {
-            'n_channels': 1,
-            'n_layers':8,
-            'max_dilation': 512,
-            'down_sample': 14,
-            'n_residual_channels': 64,
-            'n_dilated_channels': 64,
-            'encoding_factor': 250,
-            'encoding_stride': 250
-        }
+        lrelu = functools.partial(nn.LeakyReLU, negative_slope=0.2)
+        conv_bn_lrelu = functools.partial(conv_norm_act, relu=lrelu)
 
-        self.wc = WaveNetClassifier(encoder_dict, 199980)
+        self.ls = nn.Sequential(nn.Conv2d(3, dim, 4, 2, 1), nn.LeakyReLU(0.2),
+                                conv_bn_lrelu(dim * 1, dim * 2, 4, 2, 1),
+                                conv_bn_lrelu(dim * 2, dim * 4, 4, 2, 1),
+                                conv_bn_lrelu(dim * 4, dim * 8, 4, 1, (1, 2)),
+                                nn.Conv2d(dim * 8, 1, 4, 1, (2, 1)))
 
     def forward(self, x):
-        return self.wc.forward(x)
+        return self.ls(x)
+
+
+class ResiduleBlock(nn.Module):
+
+    def __init__(self, in_dim, out_dim):
+        super(ResiduleBlock, self).__init__()
+
+        conv_bn_relu = conv_norm_act
+
+        self.ls = nn.Sequential(nn.ReflectionPad2d(1),
+                                conv_bn_relu(in_dim, out_dim, 3, 1),
+                                nn.ReflectionPad2d(1),
+                                nn.Conv2d(out_dim, out_dim, 3, 1),
+                                nn.BatchNorm2d(out_dim))
+
+    def forward(self, x):
+        return x + self.ls(x)
 
 
 class Generator(nn.Module):
 
-    def __init__(self, dim=128):
+    def __init__(self, dim=64):
         super(Generator, self).__init__()
 
         conv_bn_relu = conv_norm_act
         dconv_bn_relu = dconv_norm_act
 
-        self.ds = nn.Sequential(conv_bn_relu(1, dim, 5, 5),
-                                conv_bn_relu(dim, dim, 4, 4),
-                                nn.Conv1d(dim, 1, 1, 1, 0, bias=False))
-
-        self.res = ResNet1D(2, 2, dim, 8)
-
-        self.us = nn.Sequential(dconv_bn_relu(1, dim, 4, 4),
-        						dconv_bn_relu(dim, dim, 5, 5),
-                                nn.Conv1d(dim, 1, 1, 1, 0, bias=False))
-        #nn.ConvTranspose1d(1, 1, 6, 6, 0, 0, bias=False)
-        #Add a long scale filter to help with gibbs.
-        self.deGibbs = nn.Conv1d(1, 1, 1001, 1, 500, bias=False)
+        self.ls = nn.Sequential(conv_bn_relu(1025, dim * 1, 7, 1),
+                                conv_bn_relu(dim * 1, dim * 2, 3, 2, 1),
+                                conv_bn_relu(dim * 2, dim * 4, 3, 2, 1),
+                                ResiduleBlock(dim * 4, dim * 4),
+                                ResiduleBlock(dim * 4, dim * 4),
+                                ResiduleBlock(dim * 4, dim * 4),
+                                ResiduleBlock(dim * 4, dim * 4),
+                                ResiduleBlock(dim * 4, dim * 4),
+                                ResiduleBlock(dim * 4, dim * 4),
+                                ResiduleBlock(dim * 4, dim * 4),
+                                ResiduleBlock(dim * 4, dim * 4),
+                                ResiduleBlock(dim * 4, dim * 4),
+                                dconv_bn_relu(dim * 4, dim * 2, 3, 2, 1, 1),
+                                dconv_bn_relu(dim * 2, dim * 1, 3, 2, 1, 1),
+                                nn.ReflectionPad2d(3),
+                                nn.Conv2d(dim, 3, 7, 1),
+                                nn.Tanh())
 
     def forward(self, x):
-        down_sample = self.ds(x)
 
-        rfft_squeeze = torch.rfft(down_sample, 2).squeeze(1)
-        rfft_squeeze_transpose = torch.transpose(rfft_squeeze, dim0=1, dim1=2)
+        x_squeeze = x.squeeze(1)
 
-        res_out = self.res.forward(rfft_squeeze_transpose)
+        stft = torch.stft(x_squeeze, 2048)
 
-        res_out_transpose_unsqueeze = torch.transpose(res_out, dim0=1, dim1=2).unsqueeze(1)
-        ifft = torch.irfft(res_out_transpose_unsqueeze, 2, signal_sizes=down_sample.shape[1:])
+        gen_out = self.ls(stft)
 
-        up_sample = self.us(ifft)
+        y = istft(gen_out)
 
-        #Hopefully this can learn to kill ringing.
-        out = self.deGibbs(up_sample)
+        return y
 
-        out = torch.tanh(out)
-
-        return out

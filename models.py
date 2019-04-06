@@ -32,7 +32,7 @@ class Discriminator(nn.Module):
         lrelu = functools.partial(nn.LeakyReLU, negative_slope=0.2)
         conv_bn_lrelu = functools.partial(conv_norm_act, relu=lrelu)
 
-        self.ls = nn.Sequential(nn.Conv2d(2, dim, 4, 2, 1), nn.LeakyReLU(0.2),
+        self.ls = nn.Sequential(nn.Conv2d(1, dim, 4, 2, 1), nn.LeakyReLU(0.2),
                                 conv_bn_lrelu(dim * 1, dim * 2, 4, 2, 1),
                                 conv_bn_lrelu(dim * 2, dim * 4, 4, 2, 1),
                                 conv_bn_lrelu(dim * 4, dim * 8, 4, 1, (1, 2)),
@@ -67,7 +67,8 @@ class Generator(nn.Module):
         conv_bn_relu = conv_norm_act
         dconv_bn_relu = dconv_norm_act
 
-        self.ls = nn.Sequential(conv_bn_relu(2, dim * 1, 7, 1),
+        self.ls = nn.Sequential(nn.ReflectionPad2d(3),
+                                conv_bn_relu(1, dim * 1, 7, 1),
                                 conv_bn_relu(dim * 1, dim * 2, 3, 2, 1),
                                 conv_bn_relu(dim * 2, dim * 4, 3, 2, 1),
                                 ResiduleBlock(dim * 4, dim * 4),
@@ -81,7 +82,8 @@ class Generator(nn.Module):
                                 ResiduleBlock(dim * 4, dim * 4),
                                 dconv_bn_relu(dim * 4, dim * 2, 3, 2, 1, 1),
                                 dconv_bn_relu(dim * 2, dim * 1, 3, 2, 1, 1),
-                                nn.ConvTranspose2d(dim,2,1,1))
+                                nn.ReflectionPad2d(3),
+                                nn.Conv2d(dim, 1, 7, 1),)
 
     def forward(self, x):
         return self.ls(x)

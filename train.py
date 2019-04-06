@@ -28,11 +28,12 @@ dataset_dir = 'datasets/music2music'
 
 
 """ data """
-length = 101024
+length = 203776
+n_fft = 2046
 
 transform=transforms.Compose([
     transforms.PadTrim(length,0),
-    transforms.DownmixMono(True)
+    transforms.Spectrogram(n_fft=n_fft, normalize=True)
 ])
 
 dataset_dirs = utils.reorganize(dataset_dir)
@@ -84,42 +85,24 @@ except:
 a_real_test = iter(a_test_loader).next()[0]
 b_real_test = iter(b_test_loader).next()[0]
 a_real_test, b_real_test = utils.cuda([a_real_test, b_real_test])
-n_fft = 2050
-
-# helpers
-
-def convert_to_spectro(vec):
-    squeeze = vec.squeeze(1)
-    stft = torch.stft(squeeze, n_fft)
-    return torch.transpose(stft, dim0=1, dim1=3)
-
-def convert_from_spectro(vec):
-    trans = torch.transpose(vec, dim0=1, dim1=3)
-    back = istft(trans, n_fft//4, length=length)
-    return back.unsqueeze(1)
 
 for epoch in range(start_epoch, epochs):
     for i, (a_real, b_real) in enumerate(zip(a_loader, b_loader)):
         # step
         step = epoch * min(len(a_loader), len(b_loader)) + i + 1
 
-        # leaves
-        a_real = a_real[0]
-        b_real = b_real[0]
-
-        #convert to spectro
-        a_stft = convert_to_spectro(a_real)
-        b_stft = convert_to_spectro(b_real)
-
-        a_stft, b_stft = utils.cuda([a_stft, b_stft])
-
         # set train
         Ga.train()
         Gb.train()
 
+        # leaves
+        a_real = a_real[0]
+        b_real = b_real[0]
+        a_real, b_real = utils.cuda([a_real, b_real])
+
         # train G
-        a_fake = Ga(b_stft)
-        b_fake = Gb(a_stft)
+        a_fake = Ga(b_real)
+        b_fake = Gb(a_real)
 
         a_rec = Ga(b_fake)
         b_rec = Gb(a_fake)
@@ -132,8 +115,8 @@ for epoch in range(start_epoch, epochs):
         b_gen_loss = MSE(b_f_dis, r_label)
 
         # rec losses
-        a_rec_loss = L1(a_rec, a_stft)
-        b_rec_loss = L1(b_rec, b_stft)
+        a_rec_loss = L1(a_rec, a_real)
+        b_rec_loss = L1(b_rec, b_real)
 
         # g loss
         g_loss = a_gen_loss + b_gen_loss + a_rec_loss * 10.0 + b_rec_loss * 10.0
@@ -151,9 +134,9 @@ for epoch in range(start_epoch, epochs):
         a_fake, b_fake = utils.cuda([a_fake, b_fake])
 
         # train D
-        a_r_dis = Da(a_stft)
+        a_r_dis = Da(a_real)
         a_f_dis = Da(a_fake)
-        b_r_dis = Db(b_stft)
+        b_r_dis = Db(b_real)
         b_f_dis = Db(b_fake)
         r_label = utils.cuda(torch.ones(a_f_dis.size()))
         f_label = utils.cuda(torch.zeros(a_f_dis.size()))
@@ -175,8 +158,6 @@ for epoch in range(start_epoch, epochs):
         da_optimizer.step()
         db_optimizer.step()
 
-        torch.cuda.empty_cache()
-
         if (i + 1) % 1 == 0:
             print("Epoch: (%3d) (%5d/%5d)" % (epoch, i + 1, min(len(a_loader), len(b_loader))))
             print("A discrim loss: %5f Gen loss: %5f rec loss: %5f" % (a_d_loss, a_gen_loss, a_rec_loss))
@@ -194,23 +175,14 @@ for epoch in range(start_epoch, epochs):
             b_real_test = iter(b_test_loader).next()[0]
             a_real_test, b_real_test = utils.cuda([a_real_test, b_real_test])
 
-            #convert to spectro
-            a_real_test_spectro = convert_to_spectro(a_real_test)
-            b_real_test_spectro = convert_to_spectro(b_real_test)
-
             # train G
-            a_fake_test = Ga(b_real_test_spectro)
-            b_fake_test = Gb(a_real_test_spectro)
+            a_fake_test = Ga(b_real_test)
+            b_fake_test = Gb(a_real_test)
 
             a_rec_test = Ga(b_fake_test)
             b_rec_test = Gb(a_fake_test)
 
             #convert back
-            a_fake_test = convert_from_spectro(a_fake_test)
-            b_fake_test = convert_from_spectro(b_fake_test)
-            a_rec_test = convert_from_spectro(a_rec_test)
-            b_rec_test = convert_from_spectro(b_rec_test)
-
             for net in nets:
                 for param in net.parameters():
                     param.requires_grad = True

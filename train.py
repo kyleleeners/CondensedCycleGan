@@ -22,7 +22,7 @@ torch.cuda.empty_cache()
 
 """ param """
 epochs = 300
-batch_size = 4
+batch_size = 1
 lr = 0.0002
 dataset_dir = 'datasets/music2music'
 
@@ -101,7 +101,9 @@ for epoch in range(start_epoch, epochs):
         # leaves
         a_real = a_real[0]
         b_real = b_real[0]
-        a_real, b_real = utils.cuda([a_real, b_real])
+        a_real_fft = torch.transpose(torch.rfft(a_real, 2).squeeze(1), dim0=1, dim1=2)[:,:,:-1]
+        b_real_fft = torch.transpose(torch.rfft(b_real, 2).squeeze(1), dim0=1, dim1=2)[:,:,:-1]
+        a_real, b_real = utils.cuda([a_real_fft, b_real_fft])
 
         # train G
         a_fake = Ga(b_real)
@@ -175,22 +177,30 @@ for epoch in range(start_epoch, epochs):
             #Try a new song
             a_real_test = iter(a_test_loader).next()[0]
             b_real_test = iter(b_test_loader).next()[0]
-            a_real_test, b_real_test = utils.cuda([a_real_test, b_real_test])
+            a_real_test_fft = torch.transpose(torch.rfft(a_real_test, 2).squeeze(1), dim0=1, dim1=2)[:,:,:-1]
+            b_real_test_fft = torch.transpose(torch.rfft(b_real_test, 2).squeeze(1), dim0=1, dim1=2)[:,:,:-1]
+            a_real_test_fft, b_real_test_fft = utils.cuda([a_real_test_fft, b_real_test_fft])
 
             # train G
-            a_fake_test = Ga(b_real_test)
-            b_fake_test = Gb(a_real_test)
+            a_fake_test = Ga(b_real_test_fft)
+            b_fake_test = Gb(a_real_test_fft)
 
             a_rec_test = Ga(b_fake_test)
             b_rec_test = Gb(a_fake_test)
 
+            a_fake_test_ifft = torch.irfft(torch.transpose(a_fake_test, dim0=1, dim1=2).unsqueeze(1), 2)
+            b_fake_test_ifft = torch.irfft(torch.transpose(b_fake_test, dim0=1, dim1=2).unsqueeze(1), 2)
+
+            a_rec_test_ifft = torch.irfft(torch.transpose(a_rec_test, dim0=1, dim1=2).unsqueeze(1), 2)
+            b_rec_test_ifft = torch.irfft(torch.transpose(b_rec_test, dim0=1, dim1=2).unsqueeze(1), 2)
+
             a_real_test_cpu = a_real_test.squeeze(0).cpu()
-            a_fake_test_cpu = a_fake_test.squeeze(0).cpu()
-            a_rec_test_cpu = a_rec_test.squeeze(0).cpu()
+            a_fake_test_cpu = a_fake_test_ifft.squeeze(0).cpu()
+            a_rec_test_cpu = a_rec_test_ifft.squeeze(0).cpu()
 
             b_real_test_cpu = b_real_test.squeeze(0).cpu()
-            b_fake_test_cpu = b_fake_test.squeeze(0).cpu()
-            b_rec_test_cpu = b_rec_test.squeeze(0).cpu()
+            b_fake_test_cpu = b_fake_test_ifft.squeeze(0).cpu()
+            b_rec_test_cpu = b_rec_test_ifft.squeeze(0).cpu()
 
             save_dir = './samples_while_training/epoch_%d' % epoch
             utils.mkdir([save_dir])

@@ -33,10 +33,11 @@ class Discriminator(nn.Module):
 
         conv_bn_relu = conv_norm_act
 
-        self.ds = nn.Sequential(conv_bn_relu(2, dim, 5, 5),
-                                conv_bn_relu(dim, dim, 3, 3))
+        self.ds = nn.Sequential(conv_bn_relu(2, 64, 15, 2, 1),
+                                conv_bn_relu(64, 128, 5, 2, 2),
+                                conv_bn_relu(128, 256, 5, 2, 2))
 
-        self.fc = nn.Linear(6666,1)
+        self.fc = nn.Linear(9374,1)
 
     def forward(self, x):
 
@@ -54,17 +55,19 @@ class Generator(nn.Module):
         conv_bn_relu = conv_norm_act
         dconv_bn_relu = dconv_norm_act
 
-        self.ds = nn.Sequential(conv_bn_relu(2, dim, 5, 5),
-                                conv_bn_relu(dim, dim, 3, 3))
+        self.ds = nn.Sequential(conv_bn_relu(2, 128, 15, 2, 1),
+                                conv_bn_relu(128, 256, 5, 2, 2),
+                                conv_bn_relu(256, 512, 5, 2, 2))
 
-        self.res = ResNet1D(dim, dim, dim, 8)
+        self.res = ResNet1D(512, 512, 1024, 5)
 
-        self.us = nn.Sequential(dconv_bn_relu(dim, dim, 3, 3),
-                                dconv_bn_relu(dim, 2, 5, 5))
+        self.us = nn.Sequential(dconv_bn_relu(512, 256, 5, 2, 2),
+                                dconv_bn_relu(256, 128, 5, 2, 2),
+                                dconv_bn_relu(128, 2, 15, 2, 1))
 
         #nn.ConvTranspose1d(1, 1, 6, 6, 0, 0, bias=False)
         #Add a long scale filter to help with gibbs.
-        self.deGibbs = nn.Conv1d(2, 2, 1001, 1, 500, bias=False)
+        # self.deGibbs = nn.Conv1d(2, 2, 1001, 1, 500, bias=False)
 
     def forward(self, x):
         down_sample = self.ds(x)
@@ -74,8 +77,8 @@ class Generator(nn.Module):
         up_sample = self.us(res_out)
 
         #Hopefully this can learn to kill ringing.
-        out = self.deGibbs(up_sample)
+        # out = self.deGibbs(up_sample)
 
-        out = torch.tanh(out)
+        out = torch.tanh(up_sample)
 
         return out

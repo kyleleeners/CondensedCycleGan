@@ -21,7 +21,6 @@ def cuda_devices(gpu_ids):
     gpu_ids = [str(i) for i in gpu_ids]
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(gpu_ids)
 
-
 def cuda(xs):
     if torch.cuda.is_available():
         if not isinstance(xs, (list, tuple)):

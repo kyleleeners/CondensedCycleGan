@@ -16,7 +16,7 @@ class Conv(torch.nn.Module):
 									kernel_size=kernel_size, stride=stride,
 									dilation=dilation, bias=bias)
 
-		torch.nn.init.xavier_uniform(
+		torch.nn.init.xavier_uniform_(
 			self.conv.weight, gain=torch.nn.init.calculate_gain(w_init_gain))
 
 	def forward(self, signal):

@@ -59,7 +59,7 @@ class Generator(nn.Module):
                                 conv_bn_relu(128, 256, 5, 2, 2),
                                 conv_bn_relu(256, 1, 5, 2, 2))
 
-        self.res = ResNet1D(2, 2, 512, 9)
+        self.res = ResNet1D(1, 1, 512, 9)
 
         self.us = nn.Sequential(dconv_bn_relu(1, 256, 5, 2, 2),
                                 dconv_bn_relu(256, 128, 5, 2, 2),
@@ -72,17 +72,8 @@ class Generator(nn.Module):
     def forward(self, x):
         down_sample = self.ds(x)
 
-        fft = torch.transpose(torch.rfft(down_sample, 2).squeeze(1), dim0=1, dim1=2)
+        res_out = self.res.forward(down_sample)
 
-        res_out = self.res.forward(fft)
+        up_sample = self.us(res_out)
 
-        ifft = torch.irfft(torch.transpose(res_out, dim0=1, dim1=2).unsqueeze(1), 2, signal_sizes=down_sample.shape[1:])
-
-        up_sample = self.us(ifft)
-
-        #Hopefully this can learn to kill ringing.
-        out = self.deGibbs(up_sample)
-
-        out = torch.tanh(out)
-
-        return out
+        return up_sample

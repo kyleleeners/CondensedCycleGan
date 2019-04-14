@@ -93,10 +93,6 @@ for epoch in range(start_epoch, epochs):
         # step
         step = epoch * min(len(a_loader), len(b_loader)) + i + 1
 
-        #Add this in.
-        #a_real.squeeze(1)
-        #b_real.squeeze(1)
-
         # set train
         Ga.train()
         Gb.train()
@@ -158,7 +154,7 @@ for epoch in range(start_epoch, epochs):
         a_d_loss = (a_d_r_loss + a_d_f_loss) * 0.5
         b_d_loss = (b_d_r_loss + b_d_f_loss) * 0.5
 
-        if a_d_loss > 0.4 and b_d_loss > 0.4:
+        if a_d_loss > 0.2 and b_d_loss > 0.2:
 
             # backward
             Da.zero_grad()

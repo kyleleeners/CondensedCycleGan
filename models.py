@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch
 
 from ResNet.ResNet1d import ResNet1D
+from WaveNet2.WaveNetEncoder.WaveNetClassifier import WaveNetClassifier
 #from WaveNet2.WaveNetGenerator import WaveNetGenerator
 
 
@@ -31,20 +32,21 @@ class Discriminator(nn.Module):
     def __init__(self, dim=128):
         super(Discriminator, self).__init__()
 
-        conv_bn_relu = conv_norm_act
+        encoder_dict = {
+            'n_channels': 1,
+            'n_layers':8,
+            'max_dilation': 512,
+            'down_sample': 14,
+            'n_residual_channels': 64,
+            'n_dilated_channels': 64,
+            'encoding_factor': 250,
+            'encoding_stride': 250
+        }
 
-        self.ds = nn.Sequential(conv_bn_relu(1, 64, 15, 2, 1),
-                                conv_bn_relu(64, 128, 5, 2, 2),
-                                conv_bn_relu(128, 256, 5, 2, 2))
-
-        self.fc = nn.Linear(18749,1)
+        self.wc = WaveNetClassifier(encoder_dict, 149997)
 
     def forward(self, x):
-
-        ds = self.ds(x)
-        fc = self.fc(ds)
-
-        return torch.sigmoid(fc)
+        return self.wc.forward(x)
 
 
 class Generator(nn.Module):

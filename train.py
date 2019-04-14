@@ -32,7 +32,7 @@ load_size = 286
 crop_size = 256
 
 transform=transforms.Compose([
-    transforms.PadTrim(150000,0),
+    transforms.PadTrim(149997,0),
     transforms.DownmixMono(True)
 ])
 
@@ -104,9 +104,7 @@ for epoch in range(start_epoch, epochs):
         # leaves
         a_real = a_real[0]
         b_real = b_real[0]
-        a_real_fft = torch.transpose(torch.rfft(a_real, 2).squeeze(1), dim0=1, dim1=2)[:,:,:-4]
-        b_real_fft = torch.transpose(torch.rfft(b_real, 2).squeeze(1), dim0=1, dim1=2)[:,:,:-4]
-        a_real, b_real = utils.cuda([a_real_fft, b_real_fft])
+        a_real, b_real = utils.cuda([a_real, b_real])
 
         # train G
         a_fake = Ga(b_real)
@@ -129,7 +127,7 @@ for epoch in range(start_epoch, epochs):
         b_rec_loss = L1(b_rec, b_real)
 
         # g loss
-        g_loss = (a_gen_loss + b_gen_loss + a_rec_loss + b_rec_loss) * 10
+        g_loss = a_gen_loss + b_gen_loss + a_rec_loss * 10 + b_rec_loss * 10
 
         # backward
         Ga.zero_grad()
@@ -160,7 +158,7 @@ for epoch in range(start_epoch, epochs):
         a_d_loss = (a_d_r_loss + a_d_f_loss) * 0.5
         b_d_loss = (b_d_r_loss + b_d_f_loss) * 0.5
 
-        if a_d_loss > 0.3 and b_d_loss > 0.3:
+        if a_d_loss > 0.4 and b_d_loss > 0.4:
 
             # backward
             Da.zero_grad()
@@ -184,31 +182,23 @@ for epoch in range(start_epoch, epochs):
             #Try a new song
             a_real_test = iter(a_test_loader).next()[0]
             b_real_test = iter(b_test_loader).next()[0]
-            a_real_test_fft = torch.transpose(torch.rfft(a_real_test, 2).squeeze(1), dim0=1, dim1=2)[:,:,:-4]
-            b_real_test_fft = torch.transpose(torch.rfft(b_real_test, 2).squeeze(1), dim0=1, dim1=2)[:,:,:-4]
-            a_real_test_fft, b_real_test_fft = utils.cuda([a_real_test_fft, b_real_test_fft])
+            a_real_test, b_real_test = utils.cuda([a_real_test, b_real_test])
 
             with torch.no_grad():
                 # train G
-                a_fake_test = Ga(b_real_test_fft)
-                b_fake_test = Gb(a_real_test_fft)
+                a_fake_test = Ga(b_real_test)
+                b_fake_test = Gb(a_real_test)
 
                 a_rec_test = Ga(b_fake_test)
                 b_rec_test = Gb(a_fake_test)
 
-            a_fake_test_ifft = torch.irfft(torch.transpose(a_fake_test, dim0=1, dim1=2).unsqueeze(1), 2)
-            b_fake_test_ifft = torch.irfft(torch.transpose(b_fake_test, dim0=1, dim1=2).unsqueeze(1), 2)
-
-            a_rec_test_ifft = torch.irfft(torch.transpose(a_rec_test, dim0=1, dim1=2).unsqueeze(1), 2)
-            b_rec_test_ifft = torch.irfft(torch.transpose(b_rec_test, dim0=1, dim1=2).unsqueeze(1), 2)
-
             a_real_test_cpu = a_real_test.squeeze(0).cpu()
-            a_fake_test_cpu = a_fake_test_ifft.squeeze(0).cpu()
-            a_rec_test_cpu = a_rec_test_ifft.squeeze(0).cpu()
+            a_fake_test_cpu = a_fake_test.squeeze(0).cpu()
+            a_rec_test_cpu = a_rec_test.squeeze(0).cpu()
 
             b_real_test_cpu = b_real_test.squeeze(0).cpu()
-            b_fake_test_cpu = b_fake_test_ifft.squeeze(0).cpu()
-            b_rec_test_cpu = b_rec_test_ifft.squeeze(0).cpu()
+            b_fake_test_cpu = b_fake_test.squeeze(0).cpu()
+            b_rec_test_cpu = b_rec_test.squeeze(0).cpu()
 
             save_dir = './samples_while_training/epoch_%d' % epoch
             utils.mkdir([save_dir])
